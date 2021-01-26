@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using LibGit2Sharp;
@@ -22,17 +23,31 @@ namespace ConvetionalCommitApi.Controllers
         }
 
         [HttpGet]
-        public List<Commit> Get(String path,String username,String password)
-        {
-            var cloneOptions = new CloneOptions()
+        public List<Commit> Get(String path,String username,String password,String branch)
+        {   
+            DirectoryInfo di = new DirectoryInfo("tempRepo/");
+            if (di.Exists)
             {
-                CredentialsProvider = (_url, _user, _cred) => new UsernamePasswordCredentials
+                BranchController.setAttributesNormal(di);
+                di.Delete(true);
+            }
+            string clone ;
+            if (username != null && password != null)
+            {
+                var cloneOptions = new CloneOptions()
                 {
-                    Username = username,
-                    Password = password
-                }
-            };
-            var clone = Repository.Clone(path, "tempRepo/", cloneOptions);
+                    CredentialsProvider = (_url, _user, _cred) => new UsernamePasswordCredentials
+                    {
+                        Username = username,
+                        Password = password
+                    }
+                };
+                clone = Repository.Clone(path, "tempRepo/", cloneOptions);
+            }
+            else
+            {
+                clone = Repository.Clone(path, "tempRepo/");
+            }
             var list = new List<Commit>();
             using (var repo = new Repository(@clone))
             {
@@ -42,19 +57,39 @@ namespace ConvetionalCommitApi.Controllers
                 var tree = repo.Lookup<Tree>("sha");
                 // var tag = repo.Lookup<Tag>("sha");
 
+                ICommitLog commits = null;
                 
-                foreach (var headCommit in repo.Head.Commits)
+                if (branch == null)
                 {
+                    commits = repo.Head.Commits;
+                }
+                else
+                {
+                    commits = repo.Branches[branch].Commits;
+                }
+                
+                foreach (var tempCommit in commits.Take(100))
+                {
+                    string message;
+                    string type = "None";
+                    if (tempCommit.Message.Contains(":"))
+                    {
+                        string[] strings = tempCommit.Message.Split(":");
+                        message = strings[1];
+                        type = strings[0];
+                    }
+                    else
+                    {
+                        message = tempCommit.Message;
+                    }
 
                     var commitObj = new Commit
                     {
-                        author = headCommit.Author, commiter = headCommit.Committer, message = headCommit.Message
+                        author = tempCommit.Author, commiter = tempCommit.Committer, message = message,type = type
                     };
                     list.Add(commitObj);
                 }
-                System.IO.DirectoryInfo di = new System.IO.DirectoryInfo("tempRepo/");
-                BranchController.setAttributesNormal(di);
-                di.Delete(true);
+
                 return list;
 
                 // Branches

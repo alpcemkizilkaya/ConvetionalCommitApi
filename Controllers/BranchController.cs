@@ -15,7 +15,6 @@ namespace ConvetionalCommitApi.Controllers
     [Route("[controller]")]
     public class BranchController : ControllerBase
     {
-
         private readonly ILogger<BranchController> _logger;
 
         public BranchController(ILogger<BranchController> logger)
@@ -24,19 +23,35 @@ namespace ConvetionalCommitApi.Controllers
         }
 
         [HttpGet]
-        public List<Branch> Get(String path,String username,String password)
+        public List<Branch> Get(String path, String username, String password)
         {
-            var cloneOptions = new CloneOptions()
+            DirectoryInfo di = new DirectoryInfo("tempRepo/");
+            if (di.Exists)
             {
-                CredentialsProvider = (_url, _user, _cred) => new UsernamePasswordCredentials
+                setAttributesNormal(di);
+                di.Delete(true);
+            }
+
+
+            string clone;
+            if (username != null && password != null)
+            {
+                var cloneOptions = new CloneOptions()
                 {
-                    Username = username,
-                    Password = password
-                }
-            };
-            var clone = Repository.Clone(path, "tempRepo/", cloneOptions);
-            
-        
+                    CredentialsProvider = (_url, _user, _cred) => new UsernamePasswordCredentials
+                    {
+                        Username = username,
+                        Password = password
+                    }
+                };
+                clone = Repository.Clone(path, "tempRepo/", cloneOptions);
+            }
+            else
+            {
+                clone = Repository.Clone(path, "tempRepo/");
+            }
+
+
             var list = new List<Branch>();
             using (var repo = new Repository(@clone))
             {
@@ -46,35 +61,31 @@ namespace ConvetionalCommitApi.Controllers
                 var tree = repo.Lookup<Tree>("sha");
                 // var tag = repo.Lookup<Tag>("sha");
 
-                
                 foreach (var branch in repo.Branches.ToList())
-                {
-
+                {   
                     var branchObj = new Branch()
                     {
                         name = branch.FriendlyName, isRemote = branch.IsRemote
                     };
                     list.Add(branchObj);
                 }
-                System.IO.DirectoryInfo di = new System.IO.DirectoryInfo("tempRepo/");
-                setAttributesNormal(di);
-                di.Delete(true);
+
 
                 return list;
-
-
-
-
             }
         }
-        public static void setAttributesNormal(DirectoryInfo dir) {
-            foreach (var subDir in dir.GetDirectories())
-                
-                setAttributesNormal(subDir);
+
+        public static void setAttributesNormal(DirectoryInfo dir)
+        {
             foreach (var file in dir.GetFiles())
             {
-                Console.WriteLine("file"+file.Name);
                 file.Attributes = FileAttributes.Normal;
+            }
+
+            foreach (var subDir in dir.GetDirectories())
+            {
+                setAttributesNormal(subDir);
+                subDir.Attributes = FileAttributes.Normal;
             }
         }
     }

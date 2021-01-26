@@ -6,6 +6,8 @@ namespace ConvetionalCommitApi
     public class Commit
     {
         public String message { get; set; }
+        
+        public String type { get; set; }
 
         public Signature commiter{ get; set; }
 
